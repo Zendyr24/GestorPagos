@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Control de Pagos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Added jsPDF library for PDF export functionality -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --background: #ffffff;
+        --foreground: #1f2937;
+        --card: #f8fafc;
+        --card-foreground: #374151;
+        --primary: #3b82f6;
+        --primary-foreground: #ffffff;
+        --secondary: #10b981;
+        --secondary-foreground: #ffffff;
+        --muted: #f1f5f9;
+        --muted-foreground: #64748b;
+        --accent: #8b5cf6;
+        --destructive: #ef4444;
+        --border: #e2e8f0;
+        --input: #ffffff;
+        --sidebar: #f8fafc;
+      }
+
+      [data-theme="dark"] {
+        --background: #0f172a;
+        --foreground: #f1f5f9;
+        --card: #1e293b;
+        --card-foreground: #e2e8f0;
+        --primary: #3b82f6;
+        --primary-foreground: #ffffff;
+        --secondary: #10b981;
+        --secondary-foreground: #ffffff;
+        --muted: #334155;
+        --muted-foreground: #94a3b8;
+        --accent: #8b5cf6;
+        --destructive: #ef4444;
+        --border: #475569;
+        --input: #1e293b;
+        --sidebar: #1e293b;
+      }
+
+      .font-display {
+        font-family: "Poppins", sans-serif;
+      }
+      .font-body {
+        font-family: "Inter", sans-serif;
+      }
+
+      .bg-background {
+        background-color: var(--background);
+      }
+      .bg-card {
+        background-color: var(--card);
+      }
+      .bg-primary {
+        background-color: var(--primary);
+      }
+      .bg-secondary {
+        background-color: var(--secondary);
+      }
+      .bg-muted {
+        background-color: var(--muted);
+      }
+      .bg-destructive {
+        background-color: var(--destructive);
+      }
+
+      .text-foreground {
+        color: var(--foreground);
+      }
+      .text-card-foreground {
+        color: var(--card-foreground);
+      }
+      .text-primary-foreground {
+        color: var(--primary-foreground);
+      }
+      .text-secondary-foreground {
+        color: var(--secondary-foreground);
+      }
+      .text-muted-foreground {
+        color: var(--muted-foreground);
+      }
+
+      .border-border {
+        border-color: var(--border);
+      }
+
+      .hidden {
+        display: none;
+      }
+      .block {
+        display: block;
+      }
+
+      .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        /* Making buttons more touch-friendly on mobile */
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-primary {
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .btn-primary:hover {
+        opacity: 0.9;
+      }
+
+      .btn-secondary {
+        background-color: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+
+      .btn-secondary:hover {
+        opacity: 0.9;
+      }
+
+      .btn-destructive {
+        background-color: var(--destructive);
+        color: var(--primary-foreground);
+      }
+
+      .btn-destructive:hover {
+        opacity: 0.9;
+      }
+
+      .theme-toggle {
+        background-color: var(--muted);
+        color: var(--foreground);
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+      }
+
+      .theme-toggle:hover {
+        background-color: var(--accent);
+        color: var(--primary-foreground);
+      }
+
+      .card {
+        background-color: var(--card);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--border);
+      }
+
+      .input {
+        background-color: var(--input);
+        border: 1px solid var(--border);
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        width: 100%;
+        color: var(--foreground);
+        /* Making inputs more touch-friendly */
+        min-height: 44px;
+        font-size: 16px; /* Prevents zoom on iOS */
+      }
+
+      .input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .table th,
+      .table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .table th {
+        background-color: var(--muted);
+        font-weight: 600;
+        color: var(--foreground);
+      }
+
+      .table tr:nth-child(even) {
+        background-color: var(--muted);
+      }
+
+      .sidebar {
+        background-color: var(--sidebar);
+        width: 250px;
+        height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        border-right: 1px solid var(--border);
+        padding: 1rem;
+        /* Making sidebar responsive */
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main-content {
+        margin-left: 250px;
+        padding: 2rem;
+        /* Making main content responsive */
+        transition: margin-left 0.3s ease;
+      }
+
+      .nav-item {
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        color: var(--foreground);
+      }
+
+      .nav-item:hover {
+        background-color: var(--muted);
+      }
+
+      .nav-item.active {
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .metric-card {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: var(--primary-foreground);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        text-align: center;
+      }
+
+      .progress-bar {
+        background-color: var(--muted);
+        border-radius: 0.5rem;
+        height: 0.5rem;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        background-color: var(--secondary);
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+
+      .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+
+      .modal-content {
+        background-color: var(--background);
+        color: var(--foreground);
+        border: 1px solid var(--border);
+      }
+
+      /* Adding mobile hamburger menu */
+      .mobile-menu-btn {
+        display: none;
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 1001;
+        background-color: var(--primary);
+        color: var(--primary-foreground);
+        border: none;
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+        cursor: pointer;
+        width: 44px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Adding grid utility classes for responsive layout */
+      .grid {
+        display: grid;
+      }
+
+      .grid-cols-1 {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+      }
+
+      .gap-6 {
+        gap: 1.5rem;
+      }
+
+      .gap-3 {
+        gap: 0.75rem;
+      }
+
+      .flex {
+        display: flex;
+      }
+
+      .flex-1 {
+        flex: 1 1 0%;
+      }
+
+      .items-center {
+        align-items: center;
+      }
+
+      .justify-center {
+        justify-content: center;
+      }
+
+      .justify-between {
+        justify-content: space-between;
+      }
+
+      .mb-2 {
+        margin-bottom: 0.5rem;
+      }
+      .mb-4 {
+        margin-bottom: 1rem;
+      }
+      .mb-6 {
+        margin-bottom: 1.5rem;
+      }
+      .mb-8 {
+        margin-bottom: 2rem;
+      }
+
+      .text-lg {
+        font-size: 1.125rem;
+      }
+      .text-xl {
+        font-size: 1.25rem;
+      }
+      .text-3xl {
+        font-size: 1.875rem;
+      }
+      .text-sm {
+        font-size: 0.875rem;
+      }
+
+      .font-semibold {
+        font-weight: 600;
+      }
+      .font-bold {
+        font-weight: 700;
+      }
+      .font-medium {
+        font-weight: 500;
+      }
+
+      .fixed {
+        position: fixed;
+      }
+      .inset-0 {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+      }
+      .rounded-lg {
+        border-radius: 0.5rem;
+      }
+      .w-96 {
+        width: 24rem;
+      }
+      .p-6 {
+        padding: 1.5rem;
+      }
+
+      /* Adding responsive table wrapper */
+      .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Mobile responsive styles */
+      @media (max-width: 768px) {
+        .mobile-menu-btn {
+          display: flex;
+        }
+
+        .sidebar {
+          transform: translateX(-100%);
+        }
+
+        .main-content {
+          margin-left: 0;
+          padding: 1rem;
+          padding-top: 4rem; /* Space for mobile menu button */
+        }
+
+        .grid-cols-1.md\:grid-cols-4 {
+          grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        .grid-cols-1.md\:grid-cols-2 {
+          grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        .metric-card {
+          padding: 1rem;
+        }
+
+        .metric-card h3 {
+          font-size: 1rem;
+        }
+
+        .metric-card p {
+          font-size: 1.5rem;
+        }
+
+        .card {
+          padding: 1rem;
+        }
+
+        .table th,
+        .table td {
+          padding: 0.5rem;
+          font-size: 0.875rem;
+        }
+
+        .modal-content {
+          width: 90vw;
+          max-width: 400px;
+          margin: 1rem;
+        }
+
+        .btn {
+          padding: 0.75rem 1rem;
+          font-size: 0.875rem;
+        }
+
+        /* Stack buttons vertically on mobile */
+        .flex.gap-3 {
+          flex-direction: column;
+        }
+
+        .flex.gap-3 .btn {
+          width: 100%;
+        }
+      }
+
+      /* Tablet responsive styles */
+      @media (min-width: 769px) and (max-width: 1024px) {
+        .grid-cols-1.md\:grid-cols-4 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .grid-cols-1.md\:grid-cols-2 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      /* Desktop responsive styles */
+      @media (min-width: 1025px) {
+        .sidebar {
+          transform: translateX(0);
+        }
+
+        .grid-cols-1.md\:grid-cols-4 {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .grid-cols-1.md\:grid-cols-2 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-background text-foreground font-body">
+    <!-- Adding mobile menu button -->
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="flex justify-between items-center mb-8">
+        <h1 class="font-display text-2xl font-bold text-primary">
+          Control de Pagos
+        </h1>
+        <button
+          class="theme-toggle"
+          onclick="toggleTheme()"
+          title="Cambiar tema"
+        >
+          <span id="theme-icon">🌙</span>
+        </button>
+      </div>
+      <nav>
+        <div class="nav-item active" onclick="showSection('personas')">
+          <span>👥 Personas</span>
+        </div>
+        <div class="nav-item" onclick="showSection('pagos')">
+          <span>💰 Pagos</span>
+        </div>
+        <div class="nav-item" onclick="showSection('reportes')">
+          <span>📊 Reportes</span>
+        </div>
+        <div class="nav-item" onclick="showSection('configuracion')">
+          <span>⚙️ Configuración</span>
+        </div>
+        <div
+          class="absolute bottom-4 left-0 right-0 text-center text-sm text-muted-foreground"
+        >
+          <a
+            href="https://github.com/Zendyr24"
+            target="_blank"
+            class="hover:text-primary transition-colors"
+          >
+            @Zendyr24
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Sección Personas -->
+      <div id="personas-section" class="section">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-semibold font-display">
+            Gestión de Personas
+          </h2>
+          <div class="flex gap-3">
+            <button class="btn btn-primary" onclick="openPersonModal()">
+              + Agregar Persona
+            </button>
+          </div>
+        </div>
+        <div class="mb-4">
+          <input
+            type="text"
+            id="personas-search"
+            class="input"
+            placeholder="🔍 Buscar persona..."
+            onkeyup="filterPersonasTable()"
+          />
+        </div>
+        <div class="card">
+          <!-- Adding responsive table wrapper -->
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Miembros Familia</th>
+                  <th>Monto Total</th>
+                  <th>Pagado</th>
+                  <th>Pendiente</th>
+                  <th>Progreso</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="personas-table">
+                <!-- Datos dinámicos -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Pagos -->
+      <div id="pagos-section" class="section hidden">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-semibold font-display">Registro de Pagos</h2>
+          <button class="btn btn-primary" onclick="openPaymentModal()">
+            + Registrar Pago
+          </button>
+        </div>
+        <div class="mb-4">
+          <input
+            type="text"
+            id="pagos-search"
+            class="input"
+            placeholder="🔍 Buscar pago..."
+            onkeyup="filterPagosTable()"
+          />
+        </div>
+        <div class="card">
+          <!-- Adding responsive table wrapper -->
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Persona</th>
+                  <th>Monto</th>
+                  <th>Moneda</th>
+                  <th>Tasa</th>
+                  <th>Equivalente USD</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="pagos-table">
+                <!-- Datos dinámicos -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Reportes -->
+      <div id="reportes-section" class="section hidden">
+        <h2 class="font-display text-3xl font-bold mb-6">
+          Reportes y Métricas
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div class="metric-card">
+            <h3 class="text-lg font-semibold mb-2">Total Recaudado</h3>
+            <p class="text-3xl font-bold" id="total-recaudado">$0.00</p>
+          </div>
+          <div class="metric-card">
+            <h3 class="text-lg font-semibold mb-2">Meta Objetivo</h3>
+            <p class="text-3xl font-bold" id="meta-objetivo">$0.00</p>
+          </div>
+          <div class="metric-card">
+            <h3 class="text-lg font-semibold mb-2">Progreso</h3>
+            <p class="text-3xl font-bold" id="progreso-total">0%</p>
+          </div>
+          <div class="metric-card">
+            <h3 class="text-lg font-semibold mb-2">Estado</h3>
+            <p class="text-3xl font-bold" id="estado-meta">$0.00</p>
+          </div>
+        </div>
+
+        <!-- Added currency breakdown section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div class="card">
+            <h3 class="text-xl font-semibold mb-4">Recaudado por Moneda</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-muted-foreground"
+                  >Total en Dólares (USD):</span
+                >
+                <span class="font-bold text-green-600" id="total-usd"
+                  >$0.00</span
+                >
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-muted-foreground"
+                  >Total en Bolívares (VES):</span
+                >
+                <span class="font-bold text-blue-600" id="total-ves"
+                  >Bs. 0.00</span
+                >
+              </div>
+              <div class="border-t border-border pt-2">
+                <div class="flex justify-between items-center">
+                  <span class="font-medium">Equivalente Total USD:</span>
+                  <span class="font-bold text-primary" id="total-equivalent-usd"
+                    >$0.00</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="text-xl font-semibold mb-4">Distribución de Pagos</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-muted-foreground">Pagos en USD:</span>
+                <span class="font-bold" id="count-usd">0</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-muted-foreground">Pagos en VES:</span>
+                <span class="font-bold" id="count-ves">0</span>
+              </div>
+              <div class="border-t border-border pt-2">
+                <div class="flex justify-between items-center">
+                  <span class="font-medium">Total de Pagos:</span>
+                  <span class="font-bold text-primary" id="total-payments"
+                    >0</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-6">
+          <h3 class="text-xl font-semibold mb-4">Progreso General</h3>
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              id="progress-bar"
+              style="width: 0%"
+            ></div>
+          </div>
+          <p class="text-sm text-muted-foreground mt-2" id="progress-text">
+            0 de 0 personas han completado sus pagos
+          </p>
+          <p class="text-sm font-medium mt-2" id="surplus-text"></p>
+        </div>
+
+        <div class="card">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold">Exportar Datos</h3>
+            <div class="flex gap-3">
+              <input
+                type="file"
+                id="excel-import"
+                accept=".xlsx,.xls"
+                style="display: none"
+                onchange="importFromExcel(event)"
+              />
+              <button
+                class="btn btn-primary"
+                onclick="document.getElementById('excel-import').click()"
+              >
+                📁 Importar Excel
+              </button>
+              <button class="btn btn-secondary" onclick="exportToExcel()">
+                📊 Exportar a Excel
+              </button>
+              <!-- Added PDF export button -->
+              <button class="btn btn-accent" onclick="exportToPDF()">
+                📄 Exportar a PDF
+              </button>
+            </div>
+          </div>
+          <div class="text-sm text-muted-foreground">
+            <p>
+              <strong>Importar:</strong> Selecciona un archivo Excel previamente
+              exportado para cargar todos los datos.
+            </p>
+            <p>
+              <strong>Exportar Excel:</strong> Descarga todos los datos actuales
+              en formato Excel para respaldo.
+            </p>
+            <!-- Added PDF export description -->
+            <p>
+              <strong>Exportar PDF:</strong> Genera un reporte profesional en
+              formato PDF con todos los datos y métricas.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Configuración -->
+      <div id="configuracion-section" class="section hidden">
+        <h2 class="font-display text-3xl font-bold mb-6">Configuración</h2>
+
+        <div class="card">
+          <form id="config-form">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-sm font-medium mb-2"
+                  >Tasa del Dólar (Bs.)</label
+                >
+                <input
+                  type="number"
+                  id="tasa-dolar"
+                  class="input"
+                  step="0.01"
+                  placeholder="36.50"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2"
+                  >Monto por Persona (USD)</label
+                >
+                <input
+                  type="number"
+                  id="monto-persona"
+                  class="input"
+                  step="0.01"
+                  placeholder="15.00"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2"
+                  >Meta Total (USD)</label
+                >
+                <input
+                  type="number"
+                  id="meta-total"
+                  class="input"
+                  step="0.01"
+                  placeholder="1000.00"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2"
+                  >Nombre del Proyecto</label
+                >
+                <input
+                  type="text"
+                  id="nombre-proyecto"
+                  class="input"
+                  placeholder="Proyecto 2024"
+                />
+              </div>
+            </div>
+            <div class="mt-6">
+              <button type="submit" class="btn btn-primary">
+                Guardar Configuración
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para Agregar/Editar Persona -->
+    <div
+      id="person-modal"
+      class="fixed inset-0 modal-backdrop hidden flex items-center justify-center"
+    >
+      <div class="modal-content p-6 rounded-lg w-96">
+        <h3 class="text-xl font-semibold mb-4" id="person-modal-title">
+          Agregar Persona
+        </h3>
+        <form id="person-form">
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Nombre</label>
+            <input type="text" id="person-name" class="input" required />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2"
+              >Número de Miembros</label
+            >
+            <input
+              type="number"
+              id="person-members"
+              class="input"
+              min="1"
+              value="1"
+              required
+            />
+          </div>
+          <div class="flex gap-3">
+            <button type="submit" class="btn btn-primary flex-1">
+              Guardar
+            </button>
+            <button
+              type="button"
+              class="btn btn-destructive"
+              onclick="closePersonModal()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal para Registrar Pago -->
+    <div
+      id="payment-modal"
+      class="fixed inset-0 modal-backdrop hidden flex items-center justify-center"
+    >
+      <div class="modal-content p-6 rounded-lg w-96">
+        <h3 class="text-xl font-semibold mb-4">Registrar Pago</h3>
+        <form id="payment-form">
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Persona</label>
+            <input
+              type="text"
+              id="payment-person-search"
+              class="input mb-2"
+              placeholder="🔍 Buscar persona..."
+              onkeyup="filterPaymentPersons()"
+            />
+            <select id="payment-person" class="input" required>
+              <option value="">Seleccionar persona...</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Monto</label>
+            <input
+              type="number"
+              id="payment-amount"
+              class="input"
+              step="0.01"
+              required
+            />
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Moneda</label>
+            <select id="payment-currency" class="input" required>
+              <option value="USD">Dólares (USD)</option>
+              <option value="VES">Bolívares (VES)</option>
+            </select>
+          </div>
+          <div class="flex gap-3">
+            <button type="submit" class="btn btn-primary flex-1">
+              Registrar
+            </button>
+            <button
+              type="button"
+              class="btn btn-destructive"
+              onclick="closePaymentModal()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function toggleSidebar() {
+        const sidebar = document.getElementById("sidebar");
+        sidebar.classList.toggle("open");
+      }
+
+      document.addEventListener("click", function (event) {
+        const sidebar = document.getElementById("sidebar");
+        const menuBtn = document.querySelector(".mobile-menu-btn");
+
+        if (
+          window.innerWidth <= 768 &&
+          !sidebar.contains(event.target) &&
+          !menuBtn.contains(event.target) &&
+          sidebar.classList.contains("open")
+        ) {
+          sidebar.classList.remove("open");
+        }
+      });
+
+      // Variables globales
+      let personas = JSON.parse(localStorage.getItem("personas") || "[]");
+      let pagos = JSON.parse(localStorage.getItem("pagos") || "[]");
+      let config = JSON.parse(
+        localStorage.getItem("config") ||
+          '{"tasaDolar": 36.50, "montoPorPersona": 15.00, "metaTotal": 1000.00, "nombreProyecto": "Proyecto 2024"}'
+      );
+      let editingPersonId = null;
+
+      let currentTheme = localStorage.getItem("theme") || "light";
+
+      // Inicialización
+      document.addEventListener("DOMContentLoaded", function () {
+        applyTheme(currentTheme);
+        loadConfig();
+        renderPersonas();
+        renderPagos();
+        updateReportes();
+        updatePaymentPersonSelect();
+      });
+
+      function toggleTheme() {
+        currentTheme = currentTheme === "light" ? "dark" : "light";
+        applyTheme(currentTheme);
+        localStorage.setItem("theme", currentTheme);
+      }
+
+      function applyTheme(theme) {
+        document.documentElement.setAttribute("data-theme", theme);
+        const themeIcon = document.getElementById("theme-icon");
+        themeIcon.textContent = theme === "light" ? "🌙" : "☀️";
+      }
+
+      function showSection(sectionName) {
+        document.querySelectorAll(".section").forEach((section) => {
+          section.classList.add("hidden");
+        });
+
+        document
+          .getElementById(sectionName + "-section")
+          .classList.remove("hidden");
+
+        document.querySelectorAll(".nav-item").forEach((item) => {
+          item.classList.remove("active");
+        });
+        event.target.closest(".nav-item").classList.add("active");
+      }
+
+      function showPersonForm(personId = null) {
+        editingPersonId = personId;
+        const modal = document.getElementById("person-modal");
+        const title = document.getElementById("person-modal-title");
+        const form = document.getElementById("person-form");
+
+        if (personId) {
+          const person = personas.find((p) => p.id === personId);
+          title.textContent = "Editar Persona";
+          document.getElementById("person-name").value = person.nombre;
+          document.getElementById("person-members").value = person.miembros;
+        } else {
+          title.textContent = "Agregar Persona";
+          form.reset();
+        }
+
+        modal.classList.remove("hidden");
+      }
+
+      function closePersonModal() {
+        document.getElementById("person-modal").classList.add("hidden");
+        editingPersonId = null;
+      }
+
+      document
+        .getElementById("person-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const nombre = document.getElementById("person-name").value;
+          const miembros = parseInt(
+            document.getElementById("person-members").value
+          );
+
+          if (editingPersonId) {
+            const personIndex = personas.findIndex(
+              (p) => p.id === editingPersonId
+            );
+            personas[personIndex] = {
+              ...personas[personIndex],
+              nombre,
+              miembros,
+            };
+          } else {
+            const newPerson = {
+              id: Date.now(),
+              nombre,
+              miembros,
+              fechaCreacion: new Date().toISOString(),
+            };
+            personas.push(newPerson);
+          }
+
+          localStorage.setItem("personas", JSON.stringify(personas));
+          renderPersonas();
+          updatePaymentPersonSelect();
+          updateReportes();
+          closePersonModal();
+        });
+
+      function deletePerson(personId) {
+        if (
+          confirm(
+            "¿Está seguro de eliminar esta persona? También se eliminarán todos sus pagos."
+          )
+        ) {
+          personas = personas.filter((p) => p.id !== personId);
+          pagos = pagos.filter((p) => p.personaId !== personId);
+
+          localStorage.setItem("personas", JSON.stringify(personas));
+          localStorage.setItem("pagos", JSON.stringify(pagos));
+
+          renderPersonas();
+          renderPagos();
+          updatePaymentPersonSelect();
+          updateReportes();
+        }
+      }
+
+      function renderPersonas() {
+        const tbody = document.getElementById("personas-table");
+        tbody.innerHTML = "";
+
+        personas.forEach((persona) => {
+          const montoTotal = persona.miembros * config.montoPorPersona;
+          const pagosPersona = pagos.filter((p) => p.personaId === persona.id);
+          const totalPagado = pagosPersona.reduce(
+            (sum, pago) => sum + pago.montoUSD,
+            0
+          );
+          const pendiente = montoTotal - totalPagado;
+          const progreso = Math.min((totalPagado / montoTotal) * 100, 100);
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td class="font-medium">${persona.nombre}</td>
+                    <td>${persona.miembros}</td>
+                    <td>$${montoTotal.toFixed(2)}</td>
+                    <td class="text-green-600">$${totalPagado.toFixed(2)}</td>
+                    <td class="text-red-600">$${pendiente.toFixed(2)}</td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progreso}%"></div>
+                        </div>
+                        <span class="text-sm">${progreso.toFixed(1)}%</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary text-xs mr-2" onclick="showPersonForm(${
+                          persona.id
+                        })">Editar</button>
+                        <button class="btn btn-destructive text-xs" onclick="deletePerson(${
+                          persona.id
+                        })">Eliminar</button>
+                    </td>
+                `;
+          tbody.appendChild(row);
+        });
+      }
+
+      function filterPersonasTable() {
+        const searchTerm = document
+          .getElementById("personas-search")
+          .value.toLowerCase();
+        const table = document.getElementById("personas-table");
+        const rows = table.getElementsByTagName("tr");
+
+        for (let i = 0; i < rows.length; i++) {
+          const nameCell = rows[i].getElementsByTagName("td")[0];
+          if (nameCell) {
+            const name = nameCell.textContent.toLowerCase();
+            if (name.includes(searchTerm)) {
+              rows[i].style.display = "";
+            } else {
+              rows[i].style.display = "none";
+            }
+          }
+        }
+      }
+
+      function showPaymentForm() {
+        document.getElementById("payment-modal").classList.remove("hidden");
+        document.getElementById("payment-form").reset();
+      }
+
+      function closePaymentModal() {
+        document.getElementById("payment-modal").classList.add("hidden");
+      }
+
+      function filterPaymentPersons() {
+        const searchTerm = document
+          .getElementById("payment-person-search")
+          .value.toLowerCase();
+        const select = document.getElementById("payment-person");
+        const options = select.getElementsByTagName("option");
+
+        for (let i = 1; i < options.length; i++) {
+          // Skip first option
+          const optionText = options[i].textContent.toLowerCase();
+          if (optionText.includes(searchTerm)) {
+            options[i].style.display = "";
+          } else {
+            options[i].style.display = "none";
+          }
+        }
+      }
+
+      function updatePaymentPersonSelect() {
+        const select = document.getElementById("payment-person");
+        select.innerHTML = '<option value="">Seleccionar persona...</option>';
+
+        personas.forEach((persona) => {
+          const option = document.createElement("option");
+          option.value = persona.id;
+          option.textContent = persona.nombre;
+          select.appendChild(option);
+        });
+      }
+
+      document
+        .getElementById("payment-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const personaId = parseInt(
+            document.getElementById("payment-person").value
+          );
+          const monto = parseFloat(
+            document.getElementById("payment-amount").value
+          );
+          const moneda = document.getElementById("payment-currency").value;
+
+          let montoUSD = monto;
+          if (moneda === "VES") {
+            montoUSD = monto / config.tasaDolar;
+          }
+
+          const newPayment = {
+            id: Date.now(),
+            personaId,
+            monto,
+            moneda,
+            montoUSD,
+            tasa: config.tasaDolar,
+            fecha: new Date().toISOString(),
+          };
+
+          pagos.push(newPayment);
+          localStorage.setItem("pagos", JSON.stringify(pagos));
+
+          renderPagos();
+          renderPersonas();
+          updateReportes();
+          closePaymentModal();
+        });
+
+      function deletePayment(paymentId) {
+        if (confirm("¿Está seguro de eliminar este pago?")) {
+          pagos = pagos.filter((p) => p.id !== paymentId);
+          localStorage.setItem("pagos", JSON.stringify(pagos));
+
+          renderPagos();
+          renderPersonas();
+          updateReportes();
+        }
+      }
+
+      function filterPagosTable() {
+        const searchTerm = document
+          .getElementById("pagos-search")
+          .value.toLowerCase();
+        const table = document.getElementById("pagos-table");
+        const rows = table.getElementsByTagName("tr");
+
+        for (let i = 0; i < rows.length; i++) {
+          const cells = rows[i].getElementsByTagName("td");
+          if (cells.length > 0) {
+            let found = false;
+            // Search in date and person name columns
+            for (let j = 0; j < 2; j++) {
+              if (
+                cells[j] &&
+                cells[j].textContent.toLowerCase().includes(searchTerm)
+              ) {
+                found = true;
+                break;
+              }
+            }
+            rows[i].style.display = found ? "" : "none";
+          }
+        }
+      }
+
+      function renderPagos() {
+        const tbody = document.getElementById("pagos-table");
+        tbody.innerHTML = "";
+
+        pagos
+          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+          .forEach((pago) => {
+            const persona = personas.find((p) => p.id === pago.personaId);
+            const fecha = new Date(pago.fecha).toLocaleDateString("es-ES");
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                    <td>${fecha}</td>
+                    <td>${persona ? persona.nombre : "Persona eliminada"}</td>
+                    <td>${pago.monto.toFixed(2)}</td>
+                    <td>${pago.moneda}</td>
+                    <td>${
+                      pago.moneda === "VES" ? pago.tasa.toFixed(2) : "-"
+                    }</td>
+                    <td>$${pago.montoUSD.toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-destructive text-xs" onclick="deletePayment(${
+                          pago.id
+                        })">Eliminar</button>
+                    </td>
+                `;
+            tbody.appendChild(row);
+          });
+      }
+
+      function updateReportes() {
+        const totalRecaudado = pagos.reduce(
+          (sum, pago) => sum + pago.montoUSD,
+          0
+        );
+        const totalPersonas = personas.length;
+        const totalMiembros = personas.reduce(
+          (sum, persona) => sum + persona.miembros,
+          0
+        );
+        const metaObjetivo = config.metaTotal;
+        const progreso =
+          metaObjetivo > 0 ? (totalRecaudado / metaObjetivo) * 100 : 0;
+
+        const pagosUSD = pagos.filter((p) => p.moneda === "USD");
+        const pagosVES = pagos.filter((p) => p.moneda === "VES");
+
+        const totalUSD = pagosUSD.reduce((sum, pago) => sum + pago.monto, 0);
+        const totalVES = pagosVES.reduce((sum, pago) => sum + pago.monto, 0);
+
+        const countUSD = pagosUSD.length;
+        const countVES = pagosVES.length;
+        const totalPayments = pagos.length;
+
+        // Update currency breakdown display
+        document.getElementById("total-usd").textContent = `$${totalUSD.toFixed(
+          2
+        )}`;
+        document.getElementById(
+          "total-ves"
+        ).textContent = `Bs. ${totalVES.toLocaleString("es-ES", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
+        document.getElementById(
+          "total-equivalent-usd"
+        ).textContent = `$${totalRecaudado.toFixed(2)}`;
+        document.getElementById("count-usd").textContent = countUSD;
+        document.getElementById("count-ves").textContent = countVES;
+        document.getElementById("total-payments").textContent = totalPayments;
+
+        let personasCompletas = 0;
+        personas.forEach((persona) => {
+          const montoTotal = persona.miembros * config.montoPorPersona;
+          const pagosPersona = pagos.filter((p) => p.personaId === persona.id);
+          const totalPagado = pagosPersona.reduce(
+            (sum, pago) => sum + pago.montoUSD,
+            0
+          );
+
+          if (totalPagado >= montoTotal) {
+            personasCompletas++;
+          }
+        });
+
+        document.getElementById(
+          "total-recaudado"
+        ).textContent = `$${totalRecaudado.toFixed(2)}`;
+        document.getElementById(
+          "meta-objetivo"
+        ).textContent = `$${metaObjetivo.toFixed(2)}`;
+        document.getElementById(
+          "progreso-total"
+        ).textContent = `${progreso.toFixed(1)}%`;
+        document.getElementById("progress-bar").style.width = `${Math.min(
+          progreso,
+          100
+        )}%`;
+        document.getElementById(
+          "progress-text"
+        ).textContent = `${personasCompletas} de ${totalPersonas} personas han completado sus pagos`;
+
+        const diferencia = totalRecaudado - metaObjetivo;
+        const estadoMeta = document.getElementById("estado-meta");
+        const surplusText = document.getElementById("surplus-text");
+
+        if (diferencia > 0) {
+          estadoMeta.textContent = `+$${diferencia.toFixed(2)}`;
+          estadoMeta.style.color = "#16a34a"; // green
+          surplusText.textContent = `¡Excelente! Se ha superado la meta con un sobrante de $${diferencia.toFixed(
+            2
+          )}`;
+          surplusText.style.color = "#16a34a";
+        } else if (diferencia < 0) {
+          estadoMeta.textContent = `-$${Math.abs(diferencia).toFixed(2)}`;
+          estadoMeta.style.color = "#dc2626"; // red
+          surplusText.textContent = `Faltan $${Math.abs(diferencia).toFixed(
+            2
+          )} para alcanzar la meta objetivo`;
+          surplusText.style.color = "#dc2626";
+        } else {
+          estadoMeta.textContent = "$0.00";
+          estadoMeta.style.color = "#16a34a";
+          surplusText.textContent = "¡Meta alcanzada exactamente!";
+          surplusText.style.color = "#16a34a";
+        }
+      }
+
+      function loadConfig() {
+        document.getElementById("tasa-dolar").value = config.tasaDolar;
+        document.getElementById("monto-persona").value = config.montoPorPersona;
+        document.getElementById("meta-total").value = config.metaTotal;
+        document.getElementById("nombre-proyecto").value =
+          config.nombreProyecto;
+      }
+
+      document
+        .getElementById("config-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          config = {
+            tasaDolar: parseFloat(document.getElementById("tasa-dolar").value),
+            montoPorPersona: parseFloat(
+              document.getElementById("monto-persona").value
+            ),
+            metaTotal: parseFloat(document.getElementById("meta-total").value),
+            nombreProyecto: document.getElementById("nombre-proyecto").value,
+          };
+
+          localStorage.setItem("config", JSON.stringify(config));
+
+          recalculateExistingPayments();
+
+          renderPersonas();
+          updateReportes();
+
+          alert("Configuración guardada exitosamente");
+        });
+
+      function recalculateExistingPayments() {
+        let hasChanges = false;
+
+        pagos.forEach((pago) => {
+          if (pago.moneda === "VES") {
+            const newMontoUSD = pago.monto / config.tasaDolar;
+            if (Math.abs(pago.montoUSD - newMontoUSD) > 0.01) {
+              pago.montoUSD = newMontoUSD;
+              pago.tasa = config.tasaDolar;
+              hasChanges = true;
+            }
+          }
+        });
+
+        if (hasChanges) {
+          localStorage.setItem("pagos", JSON.stringify(pagos));
+          renderPagos();
+        }
+      }
+
+      function exportToExcel() {
+        const wb = XLSX.utils.book_new();
+
+        const personasData = personas.map((persona) => {
+          const montoTotal = persona.miembros * config.montoPorPersona;
+          const pagosPersona = pagos.filter((p) => p.personaId === persona.id);
+          const totalPagado = pagosPersona.reduce(
+            (sum, pago) => sum + pago.montoUSD,
+            0
+          );
+          const pendiente = montoTotal - totalPagado;
+          const progreso = Math.min((totalPagado / montoTotal) * 100, 100);
+
+          return {
+            Nombre: persona.nombre,
+            Miembros: persona.miembros,
+            "Monto Total": montoTotal,
+            Pagado: totalPagado,
+            Pendiente: pendiente,
+            "Progreso (%)": progreso.toFixed(1),
+          };
+        });
+
+        const wsPersonas = XLSX.utils.json_to_sheet(personasData);
+        XLSX.utils.book_append_sheet(wb, wsPersonas, "Personas");
+
+        const pagosData = pagos.map((pago) => {
+          const persona = personas.find((p) => p.id === pago.personaId);
+          return {
+            Fecha: new Date(pago.fecha).toLocaleDateString("es-ES"),
+            Persona: persona ? persona.nombre : "Persona eliminada",
+            Monto: pago.monto,
+            Moneda: pago.moneda,
+            Tasa: pago.moneda === "VES" ? pago.tasa : "-",
+            "Equivalente USD": pago.montoUSD,
+          };
+        });
+
+        const wsPagos = XLSX.utils.json_to_sheet(pagosData);
+        XLSX.utils.book_append_sheet(wb, wsPagos, "Pagos");
+
+        const totalRecaudado = pagos.reduce(
+          (sum, pago) => sum + pago.montoUSD,
+          0
+        );
+        const totalMiembros = personas.reduce(
+          (sum, persona) => sum + persona.miembros,
+          0
+        );
+        const metaObjetivo = config.metaTotal;
+        const progreso =
+          metaObjetivo > 0 ? (totalRecaudado / metaObjetivo) * 100 : 0;
+        const diferencia = totalRecaudado - metaObjetivo;
+
+        const pagosUSD = pagos.filter((p) => p.moneda === "USD");
+        const pagosVES = pagos.filter((p) => p.moneda === "VES");
+        const totalUSD = pagosUSD.reduce((sum, pago) => sum + pago.monto, 0);
+        const totalVES = pagosVES.reduce((sum, pago) => sum + pago.monto, 0);
+
+        const resumenData = [
+          {
+            Métrica: "Total Recaudado (USD)",
+            Valor: totalRecaudado.toFixed(2),
+          },
+          { Métrica: "Meta Objetivo (USD)", Valor: metaObjetivo.toFixed(2) },
+          { Métrica: "Progreso (%)", Valor: progreso.toFixed(1) },
+          { Métrica: "Sobrante/Faltante (USD)", Valor: diferencia.toFixed(2) },
+          { Métrica: "Total Personas", Valor: personas.length },
+          { Métrica: "Total Miembros", Valor: totalMiembros },
+          { Métrica: "Tasa Dólar", Valor: config.tasaDolar },
+          { Métrica: "Monto por Persona", Valor: config.montoPorPersona },
+          { Métrica: "--- DESGLOSE POR MONEDA ---", Valor: "---" },
+          { Métrica: "Total en USD", Valor: totalUSD.toFixed(2) },
+          { Métrica: "Total en VES", Valor: totalVES.toFixed(2) },
+          { Métrica: "Pagos en USD", Valor: pagosUSD.length },
+          { Métrica: "Pagos en VES", Valor: pagosVES.length },
+          { Métrica: "Total de Pagos", Valor: pagos.length },
+        ];
+
+        const wsResumen = XLSX.utils.json_to_sheet(resumenData);
+        XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+
+        const fileName = `${config.nombreProyecto}_${
+          new Date().toISOString().split("T")[0]
+        }.xlsx`;
+        XLSX.writeFile(wb, fileName);
+      }
+
+      function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Header
+        doc.setFontSize(20);
+        doc.setTextColor(40, 40, 40);
+        doc.text(config.nombreProyecto, 20, 20);
+
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(
+          `Reporte generado el ${new Date().toLocaleDateString("es-ES")}`,
+          20,
+          30
+        );
+
+        // Resumen General
+        const totalRecaudado = pagos.reduce(
+          (sum, pago) => sum + pago.montoUSD,
+          0
+        );
+        const totalMiembros = personas.reduce(
+          (sum, persona) => sum + persona.miembros,
+          0
+        );
+        const metaObjetivo = config.metaTotal;
+        const progreso =
+          metaObjetivo > 0 ? (totalRecaudado / metaObjetivo) * 100 : 0;
+        const diferencia = totalRecaudado - metaObjetivo;
+        const personasCompletas = personas.filter((persona) => {
+          const montoTotal = persona.miembros * config.montoPorPersona;
+          const pagosPersona = pagos.filter((p) => p.personaId === persona.id);
+          const totalPagado = pagosPersona.reduce(
+            (sum, pago) => sum + pago.montoUSD,
+            0
+          );
+          return totalPagado >= montoTotal;
+        }).length;
+
+        // Desglose por moneda
+        const pagosUSD = pagos.filter((p) => p.moneda === "USD");
+        const pagosVES = pagos.filter((p) => p.moneda === "VES");
+        const totalUSD = pagosUSD.reduce((sum, pago) => sum + pago.monto, 0);
+        const totalVES = pagosVES.reduce((sum, pago) => sum + pago.monto, 0);
+
+        const resumenData = [
+          ["Total Recaudado", `$${totalRecaudado.toFixed(2)} USD`],
+          ["Meta Objetivo", `$${metaObjetivo.toFixed(2)} USD`],
+          ["Progreso", `${progreso.toFixed(1)}%`],
+          [
+            "Estado",
+            diferencia >= 0
+              ? `Sobrante: $${diferencia.toFixed(2)}`
+              : `Faltante: $${Math.abs(diferencia).toFixed(2)}`,
+          ],
+          ["Personas Completas", `${personasCompletas} de ${personas.length}`],
+          ["Total Miembros", totalMiembros.toString()],
+          ["", ""],
+          [
+            "Recaudado en USD",
+            `$${totalUSD.toFixed(2)} (${pagosUSD.length} pagos)`,
+          ],
+          [
+            "Recaudado en VES",
+            `Bs. ${totalVES.toFixed(2)} (${pagosVES.length} pagos)`,
+          ],
+        ];
+
+        doc.autoTable({
+          head: [["Métrica", "Valor"]],
+          body: resumenData,
+          startY: 40,
+          theme: "grid",
+          headStyles: { fillColor: [59, 130, 246] },
+          styles: { fontSize: 10 },
+        });
+
+        // Tabla de Personas
+        const personasData = personas.map((persona) => {
+          const montoTotal = persona.miembros * config.montoPorPersona;
+          const pagosPersona = pagos.filter((p) => p.personaId === persona.id);
+          const totalPagado = pagosPersona.reduce(
+            (sum, pago) => sum + pago.montoUSD,
+            0
+          );
+          const pendiente = montoTotal - totalPagado;
+          const progreso = Math.min((totalPagado / montoTotal) * 100, 100);
+
+          return [
+            persona.nombre,
+            persona.miembros.toString(),
+            `$${montoTotal.toFixed(2)}`,
+            `$${totalPagado.toFixed(2)}`,
+            `$${pendiente.toFixed(2)}`,
+            `${progreso.toFixed(1)}%`,
+          ];
+        });
+
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Detalle de Personas", 20, 20);
+
+        doc.autoTable({
+          head: [
+            ["Nombre", "Miembros", "Total", "Pagado", "Pendiente", "Progreso"],
+          ],
+          body: personasData,
+          startY: 30,
+          theme: "grid",
+          headStyles: { fillColor: [59, 130, 246] },
+          styles: { fontSize: 9 },
+        });
+
+        // Tabla de Pagos
+        if (pagos.length > 0) {
+          const pagosData = pagos.map((pago) => {
+            const persona = personas.find((p) => p.id === pago.personaId);
+            return [
+              new Date(pago.fecha).toLocaleDateString("es-ES"),
+              persona ? persona.nombre : "Persona eliminada",
+              pago.moneda === "USD"
+                ? `$${pago.monto.toFixed(2)}`
+                : `Bs. ${pago.monto.toFixed(2)}`,
+              pago.moneda,
+              pago.moneda === "VES" ? pago.tasa.toFixed(2) : "-",
+              `$${pago.montoUSD.toFixed(2)}`,
+            ];
+          });
+
+          doc.addPage();
+          doc.setFontSize(16);
+          doc.setTextColor(40, 40, 40);
+          doc.text("Historial de Pagos", 20, 20);
+
+          doc.autoTable({
+            head: [["Fecha", "Persona", "Monto", "Moneda", "Tasa", "USD"]],
+            body: pagosData,
+            startY: 30,
+            theme: "grid",
+            headStyles: { fillColor: [59, 130, 246] },
+            styles: { fontSize: 9 },
+          });
+        }
+
+        // Configuración
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Configuración del Proyecto", 20, 20);
+
+        const configData = [
+          ["Nombre del Proyecto", config.nombreProyecto],
+          ["Tasa del Dólar", `Bs. ${config.tasaDolar}`],
+          ["Meta Total", `$${config.metaTotal.toFixed(2)} USD`],
+          ["Monto por Persona", `$${config.montoPorPersona.toFixed(2)} USD`],
+        ];
+
+        doc.autoTable({
+          head: [["Configuración", "Valor"]],
+          body: configData,
+          startY: 30,
+          theme: "grid",
+          headStyles: { fillColor: [59, 130, 246] },
+          styles: { fontSize: 10 },
+        });
+
+        const fileName = `${config.nombreProyecto}_${
+          new Date().toISOString().split("T")[0]
+        }.pdf`;
+        doc.save(fileName);
+      }
+
+      function importFromExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+
+            if (workbook.SheetNames.includes("Resumen")) {
+              const resumenSheet = workbook.Sheets["Resumen"];
+              const resumenData = XLSX.utils.sheet_to_json(resumenSheet);
+
+              const newConfig = { ...config };
+              resumenData.forEach((row) => {
+                switch (row["Métrica"]) {
+                  case "Meta Objetivo (USD)":
+                    newConfig.metaTotal = parseFloat(row["Valor"]);
+                    break;
+                  case "Tasa Dólar":
+                    newConfig.tasaDolar = parseFloat(row["Valor"]);
+                    break;
+                  case "Monto por Persona":
+                    newConfig.montoPorPersona = parseFloat(row["Valor"]);
+                    break;
+                }
+              });
+
+              config = newConfig;
+              localStorage.setItem("config", JSON.stringify(config));
+              loadConfig();
+            }
+
+            if (workbook.SheetNames.includes("Personas")) {
+              const personasSheet = workbook.Sheets["Personas"];
+              const personasData = XLSX.utils.sheet_to_json(personasSheet);
+
+              const newPersonas = personasData.map((row, index) => ({
+                id: Date.now() + index,
+                nombre: row["Nombre"],
+                miembros: parseInt(row["Miembros"]),
+                fechaCreacion: new Date().toISOString(),
+              }));
+
+              personas = newPersonas;
+              localStorage.setItem("personas", JSON.stringify(personas));
+
+              const hasPaymentData = personasData.some((row) => {
+                const pagado = parseFloat(row["Pagado"]) || 0;
+                const montoTotal = parseFloat(row["Monto Total"]) || 0;
+                const progreso = parseFloat(row["Progreso (%)"]) || 0;
+
+                // If any person has payment data (not zero), consider it has data
+                return pagado > 0 || (montoTotal > 0 && progreso > 0);
+              });
+
+              if (!hasPaymentData) {
+                console.log(
+                  "[v0] No payment data detected in Excel, resetting payments to zero"
+                );
+                pagos = [];
+                localStorage.setItem("pagos", JSON.stringify(pagos));
+              }
+            }
+
+            if (workbook.SheetNames.includes("Pagos")) {
+              const pagosSheet = workbook.Sheets["Pagos"];
+              const pagosData = XLSX.utils.sheet_to_json(pagosSheet);
+
+              if (pagosData.length > 0) {
+                const newPagos = pagosData
+                  .map((row, index) => {
+                    const persona = personas.find(
+                      (p) => p.nombre === row["Persona"]
+                    );
+                    if (!persona) return null;
+
+                    const monto = parseFloat(row["Monto"]) || 0;
+                    const moneda = row["Moneda"] || "USD";
+                    const tasa =
+                      row["Tasa"] !== "-"
+                        ? parseFloat(row["Tasa"])
+                        : config.tasaDolar;
+
+                    let montoUSD = parseFloat(row["Equivalente USD"]);
+                    if (isNaN(montoUSD) || montoUSD === 0) {
+                      montoUSD = moneda === "VES" ? monto / tasa : monto;
+                    }
+
+                    if (monto > 0) {
+                      return {
+                        id: Date.now() + index + 1000,
+                        personaId: persona.id,
+                        monto: monto,
+                        moneda: moneda,
+                        montoUSD: montoUSD,
+                        tasa: tasa,
+                        fecha: new Date().toISOString(),
+                      };
+                    }
+                    return null;
+                  })
+                  .filter((pago) => pago !== null);
+
+                pagos = newPagos;
+                localStorage.setItem("pagos", JSON.stringify(pagos));
+                console.log(
+                  `[v0] Imported ${newPagos.length} payments from Excel`
+                );
+              } else {
+                console.log(
+                  "[v0] Empty payments sheet detected, resetting payments to zero"
+                );
+                pagos = [];
+                localStorage.setItem("pagos", JSON.stringify(pagos));
+              }
+            }
+
+            renderPersonas();
+            renderPagos();
+            updateReportes();
+            updatePaymentPersonSelect();
+
+            const importedPersons = personas.length;
+            const importedPayments = pagos.length;
+
+            alert(
+              `¡Datos importados exitosamente!\n\nPersonas: ${importedPersons}\nPagos: ${importedPayments}\n\nSi solo importaste personas sin pagos, todos los montos se han establecido en $0.00`
+            );
+          } catch (error) {
+            console.error("Error al importar Excel:", error);
+            alert(
+              "Error al importar el archivo Excel. Asegúrate de que sea un archivo válido exportado desde esta aplicación."
+            );
+          }
+        };
+
+        reader.readAsArrayBuffer(file);
+
+        event.target.value = "";
+      }
+
+      function openPaymentModal() {
+        document.getElementById("payment-person-search").value = "";
+        updatePaymentPersonSelect();
+        document.getElementById("payment-modal").classList.remove("hidden");
+      }
+
+      function openPersonModal() {
+        showPersonForm();
+      }
+    </script>
+  </body>
+</html>
