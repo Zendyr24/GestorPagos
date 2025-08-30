@@ -267,7 +267,7 @@
       }
 
       .progress-bar {
-        background-color: var(--muted-foreground); /* Light gray background */
+        background-color: #e5e7eb; /* Light gray background */
         border-radius: 0.5rem;
         height: 1.5rem;
         position: relative;
@@ -277,7 +277,7 @@
       }
 
       .progress-fill {
-        background-color: var(--secondary);
+        background-color: var(--primary);
         border-radius: 0.5rem;
         height: 100%;
         width: 0%;
@@ -294,12 +294,19 @@
         transform: translate(-50%, -50%);
         font-size: 0.8rem;
         font-weight: 600;
-        color: var(--foreground);
+        color: #1f2937; /* Dark gray that works well on both light and dark backgrounds */
+        text-shadow: 0 0 2px rgba(255, 255, 255, 0.8); /* White shadow for better contrast */
         white-space: nowrap;
+        z-index: 1; /* Ensure text stays above the progress fill */
+      }
+
+      .dark .progress-text {
+        color: #1f2937; /* Lighter gray for dark theme */
+        text-shadow: 0 0 2px rgba(0, 0, 0, 0.8); /* Dark shadow for better contrast in dark mode */
       }
 
       .progress-fill .progress-text {
-        color: var(--foreground);
+        color: #1f2937;
       }
 
       .modal-backdrop {
@@ -789,9 +796,8 @@
           </div>
           <div class="text-sm text-muted-foreground">
             <p>
-              <strong>Importar:</strong> Selecciona un archivo Excel. El sistema
-              buscará coincidencias por ID o Nombre para actualizar, y creará
-              personas nuevas si no encuentra coincidencias.
+              <strong>Importar:</strong> Selecciona un archivo Excel previamente
+              exportado para cargar todos los datos.
             </p>
             <p>
               <strong>Exportar Excel:</strong> Descarga todos los datos actuales
@@ -921,9 +927,7 @@
       class="fixed inset-0 modal-backdrop hidden flex items-center justify-center"
     >
       <div class="modal-content p-6 rounded-lg w-96 mx-4">
-        <h3 id="payment-modal-title" class="text-xl font-semibold mb-4">
-          Registrar Pago
-        </h3>
+        <h3 class="text-xl font-semibold mb-4">Registrar Pago</h3>
         <form id="payment-form">
           <div class="mb-4">
             <label class="block text-sm font-medium mb-2">Persona</label>
@@ -957,7 +961,7 @@
           </div>
           <div class="flex gap-3">
             <button type="submit" class="btn btn-primary flex-1">
-              Guardar
+              Registrar
             </button>
             <button
               type="button"
@@ -1163,12 +1167,15 @@
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: "array" });
 
-            // Importar Configuración PRIMERO es crucial
+            let newPersonas = [];
+            let newPagos = [];
+            let newConfig = {};
+
+            // Importar Configuración PRIMERO
             if (workbook.SheetNames.includes("Configuracion")) {
               const configRows = XLSX.utils.sheet_to_json(
                 workbook.Sheets["Configuracion"]
               );
-              let newConfig = {};
               configRows.forEach((row) => {
                 if (row.key === "diasEvento") {
                   newConfig[row.key] = JSON.parse(row.value || "[]");
@@ -1177,98 +1184,47 @@
                 }
               });
               config = newConfig;
+            } else {
+              throw new Error("La hoja 'Configuracion' es requerida.");
             }
 
-            // Lógica de importación inteligente para Personas
+            // Importar Personas
             if (workbook.SheetNames.includes("Personas")) {
               const personasRows = XLSX.utils.sheet_to_json(
                 workbook.Sheets["Personas"]
               );
-              let updatedPersonas = [...personas]; // Copia de las personas actuales
-
-              personasRows.forEach((row) => {
-                const importedId = row["ID"] ? String(row["ID"]) : null;
-                const importedName = row["Nombre"]
-                  ? String(row["Nombre"]).trim()
-                  : null;
-
-                if (!importedName) return; // Omitir filas sin nombre
-
-                let existingPersonIndex = -1;
-
-                // 1. Intentar encontrar por ID (más confiable)
-                if (importedId) {
-                  existingPersonIndex = updatedPersonas.findIndex(
-                    (p) => String(p.id) === importedId
-                  );
-                }
-
-                // 2. Si no se encontró por ID, intentar por nombre (sensible a mayúsculas/minúsculas)
-                if (existingPersonIndex === -1) {
-                  existingPersonIndex = updatedPersonas.findIndex(
-                    (p) => p.nombre.trim() === importedName
-                  );
-                }
-
-                // Si la persona existe (por ID o nombre), se actualiza. Si no, se crea.
-                if (existingPersonIndex !== -1) {
-                  // --- ACTUALIZAR PERSONA EXISTENTE ---
-                  updatedPersonas[existingPersonIndex].nombre = importedName;
-                  updatedPersonas[existingPersonIndex].miembros =
-                    Number(row["Miembros"]) ||
-                    updatedPersonas[existingPersonIndex].miembros ||
-                    1;
-                  try {
-                    updatedPersonas[existingPersonIndex].asistenciaPorDia =
-                      JSON.parse(row["AsistenciaPorDia"] || "{}");
-                  } catch {
-                    updatedPersonas[existingPersonIndex].asistenciaPorDia =
-                      updatedPersonas[existingPersonIndex].asistenciaPorDia ||
-                      {};
-                  }
-                } else {
-                  // --- CREAR NUEVA PERSONA ---
-                  const newPerson = {
-                    id:
-                      Date.now().toString() +
-                      Math.random().toString(36).substr(2, 9),
-                    nombre: importedName,
-                    miembros: Number(row["Miembros"]) || 1,
-                    asistenciaPorDia: {},
-                  };
-                  try {
-                    newPerson.asistenciaPorDia = JSON.parse(
-                      row["AsistenciaPorDia"] || "{}"
-                    );
-                  } catch {
-                    /* se mantiene el objeto vacío por defecto */
-                  }
-                  updatedPersonas.push(newPerson);
-                }
-              });
-              personas = updatedPersonas; // Reemplazar la lista de personas con la actualizada
+              newPersonas = personasRows.map((row) => ({
+                id: String(row["ID"]),
+                nombre: row["Nombre"],
+                miembros: Number(row["Miembros"]),
+                asistenciaPorDia: JSON.parse(row["AsistenciaPorDia"] || "{}"),
+              }));
+              personas = newPersonas;
             }
 
-            // La importación de pagos se mantiene simple, asumiendo que los IDs de persona son correctos
+            // Importar Pagos
             if (workbook.SheetNames.includes("Pagos")) {
-              pagos = XLSX.utils
-                .sheet_to_json(workbook.Sheets["Pagos"])
-                .map((row) => ({
-                  id: String(row["ID"]),
-                  personaId: String(row["ID Persona"]),
-                  fecha: row["Fecha"],
-                  monto: Number(row["Monto"]),
-                  moneda: row["Moneda"],
-                  tasa: row["Tasa"] ? Number(row["Tasa"]) : undefined,
-                  montoUSD: Number(row["Monto USD"]),
-                }));
+              const pagosRows = XLSX.utils.sheet_to_json(
+                workbook.Sheets["Pagos"]
+              );
+              newPagos = pagosRows.map((row) => ({
+                id: String(row["ID"]),
+                personaId: String(row["ID Persona"]),
+                fecha: row["Fecha"],
+                monto: Number(row["Monto"]),
+                moneda: row["Moneda"],
+                tasa: row["Tasa"] ? Number(row["Tasa"]) : undefined,
+                montoUSD: Number(row["Monto USD"]),
+              }));
+              pagos = newPagos;
             }
 
-            // Guardar y refrescar todo
+            // Guardar todo en localStorage
             localStorage.setItem("config", JSON.stringify(config));
             localStorage.setItem("personas", JSON.stringify(personas));
             localStorage.setItem("pagos", JSON.stringify(pagos));
 
+            // Refrescar toda la UI
             loadConfig();
             renderPersonas();
             renderPagos();
@@ -1280,6 +1236,7 @@
             console.error("Error al importar desde Excel:", error);
             alert("Error al importar el archivo: " + error.message);
           } finally {
+            // Limpiar el input para permitir re-seleccionar el mismo archivo
             event.target.value = "";
           }
         };
@@ -1340,22 +1297,18 @@
           };
 
           addSummaryRow("Proyecto:", config.nombreProyecto || "N/A");
-          addSummaryRow(
-            "Total Personas:",
-            personas.reduce((sum, p) => sum + p.miembros, 0)
-          );
-          if (config.diasEvento && config.diasEvento.length > 0) {
-            let asistenciaHTML = "";
-            config.diasEvento.forEach((dia) => {
-              const asistentes = personas.reduce(
-                (sum, p) =>
-                  sum +
-                  ((p.asistenciaPorDia && p.asistenciaPorDia[dia.id]) || 0),
-                0
-              );
-              addSummaryRow(dia.descripcion, asistentes);
-            });
-          }
+          addSummaryRow("Total Personas:", personas.reduce((sum, p) => sum + p.miembros, 0));
+          if(config.diasEvento && config.diasEvento.length > 0){let asistenciaHTML = "";
+          config.diasEvento.forEach((dia) => {
+            const asistentes = personas.reduce(
+              (sum, p) =>
+                sum + ((p.asistenciaPorDia && p.asistenciaPorDia[dia.id]) || 0),
+              0
+            );
+            addSummaryRow(dia.descripcion, asistentes);
+          });
+        }
+          
 
           addSummaryRow("Total Recaudado:", `$${totalRecaudado.toFixed(2)}`);
           addSummaryRow("Meta de Referencia:", `$${metaReferencia.toFixed(2)}`);
@@ -1445,7 +1398,7 @@
       // Funciones auxiliares para cálculos
       function calcularMontoTotalPersona(persona) {
         if (!config.diasEvento || config.diasEvento.length === 0) {
-          return 0; // Si no hay días configurados, el monto a pagar es 0.
+          return 0;
         }
         if (persona.asistenciaPorDia) {
           return config.diasEvento.reduce((sum, dia) => {
@@ -1453,7 +1406,7 @@
             return sum + asistentes * dia.precio;
           }, 0);
         }
-        return 0; // Si no tiene datos de asistencia, el total es 0.
+        return 0; // Si no tiene datos de asistencia, el total es 0
       }
 
       function calcularMontoPagadoPersona(personaId) {
@@ -1847,7 +1800,7 @@
             <td>$${montoTotal.toFixed(2)}</td>
             <td>$${totalPagado.toFixed(2)}</td>
             <td class="${
-              montoPendiente > 0.01 ? "text-red-600" : "text-green-600"
+              montoPendiente > 0 ? "text-red-600" : "text-green-600"
             }">$${montoPendiente.toFixed(2)}</td>
             <td>
               <div class="progress-bar">
@@ -1857,6 +1810,7 @@
                 )}%">
                   <span class="progress-text">${progreso.toFixed(0)}%</span>
                 </div>
+                <span class="progress-text" style="z-index: 0">${progreso.toFixed(0)}%</span>
               </div>
             </td>
             <td>
@@ -1897,14 +1851,9 @@
             }</td>
             <td>$${pago.montoUSD.toFixed(2)}</td>
             <td>
-              <div class="flex gap-2">
-                  <button class="btn btn-secondary text-xs" onclick="openPaymentModal('${
-                    pago.id
-                  }')">Editar</button>
-                  <button class="btn btn-destructive text-xs" onclick="deletePago('${
-                    pago.id
-                  }')">Eliminar</button>
-              </div>
+              <button class="btn btn-destructive text-xs" onclick="deletePago('${
+                pago.id
+              }')">Eliminar</button>
             </td>
           `;
           tbody.appendChild(row);
@@ -2020,6 +1969,7 @@
         progressTextBg.textContent = progressText;
         progressTextBg.style.visibility = progreso > 50 ? "hidden" : "visible";
         progressTextFill.style.visibility = progreso < 5 ? "hidden" : "visible";
+        progressTextBg.style.color = progreso > 50 ? "#1f2937" : "";
 
         document.getElementById(
           "completion-text"
@@ -2079,24 +2029,12 @@
         }
       }
 
-      function openPaymentModal(paymentId = null) {
-        editingPaymentId = paymentId ? String(paymentId) : null;
+      function openPaymentModal() {
+        editingPaymentId = null;
         document.getElementById("payment-form").reset();
-        const title = document.getElementById("payment-modal-title");
+        document.querySelector("#payment-modal h3").textContent =
+          "Registrar Pago";
         updatePaymentPersonSelect();
-
-        if (editingPaymentId) {
-          const payment = pagos.find((p) => String(p.id) === editingPaymentId);
-          if (payment) {
-            title.textContent = "Editar Pago";
-            document.getElementById("payment-person").value = payment.personaId;
-            document.getElementById("payment-amount").value = payment.monto;
-            document.getElementById("payment-currency").value = payment.moneda;
-          }
-        } else {
-          title.textContent = "Registrar Pago";
-        }
-
         document.getElementById("payment-modal").classList.remove("hidden");
       }
 
